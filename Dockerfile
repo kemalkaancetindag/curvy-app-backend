@@ -7,5 +7,5 @@ RUN go mod tidy
 
 EXPOSE 8080
 
-CMD ["cd app && go run main.go"]
+CMD cd app && go run main.go
 
