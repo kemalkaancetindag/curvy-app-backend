@@ -1,12 +1,11 @@
 FROM golang:latest
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
 COPY . .
 RUN go mod tidy
 
 EXPOSE 8080
 
-CMD ["cd usr && cd src && cd app"]
-CMD ["go run main.go"]
+CMD ["cd app && go run main.go"]
 
