@@ -20,7 +20,8 @@ import (
 func recommend(client firestore.Client, ctx context.Context, userID string, unLikedUsers []string) []map[string]interface{} {
 
 	userIterator := client.Collection("users").Where("userID", "==", userID).Documents(ctx)
-	responseSlice := []map[string]interface{}{}
+	priorResponseList := []map[string]interface{}{}
+	secondaryResponseList := []map[string]interface{}{}
 
 	for {
 		doc, err := userIterator.Next()
@@ -34,6 +35,7 @@ func recommend(client firestore.Client, ctx context.Context, userID string, unLi
 		}
 
 		var user = doc.Data()
+		distanceOnlyThisInterval := user["settings"].(map[string]interface{})["distance_preference"].(map[string]interface{})["only_this_interval"].(bool)
 
 		if err == nil {
 			iter := client.Collection("users").Where("userID", "!=", userID).Documents(ctx)
@@ -59,8 +61,14 @@ func recommend(client firestore.Client, ctx context.Context, userID string, unLi
 				distanceBool := distancePreferenceDecider(user, user2)
 
 				if ageBool && sexBool && distanceBool {
-					fmt.Println(user2)
-					responseSlice = append(responseSlice, user2)
+					fmt.Println("PRIOR")
+					priorResponseList = append(priorResponseList, user2)
+				} else {
+					if !distanceOnlyThisInterval {
+						fmt.Println("SECONDARY")
+						secondaryResponseList = append(secondaryResponseList, user2)
+					}
+
 				}
 
 			}
@@ -68,8 +76,11 @@ func recommend(client firestore.Client, ctx context.Context, userID string, unLi
 
 	}
 
+	responseSlice := append(priorResponseList, secondaryResponseList...)
+
 	if len(responseSlice) < 10 {
 		return responseSlice
+
 	}
 	return responseSlice[:10]
 
@@ -80,12 +91,28 @@ func agePreferenceDecider(user, user2 map[string]interface{}) bool {
 	birthYear, err := strconv.Atoi(strings.Split(user2["birthdate"].(string), "/")[2])
 
 	if err == nil {
+		var minAge = 0.0
+		var maxAge = 0.0
+
 		year, _, _ := time.Now().Date()
 		currentUserAge := year - birthYear
 		settingsInterface := user["settings"].(map[string]interface{})
 		agePreferenceInterface := settingsInterface["age_preference"].(map[string]interface{})
-		minAge := agePreferenceInterface["min_age"].(int64)
-		maxAge := agePreferenceInterface["max_age"].(int64)
+		_, minAgeOk := agePreferenceInterface["min_age"].(int64)
+
+		if minAgeOk {
+			minAge = float64(agePreferenceInterface["min_age"].(int64))
+		} else {
+			minAge = agePreferenceInterface["min_age"].(float64)
+		}
+
+		_, maxAgeOk := agePreferenceInterface["max_age"].(int64)
+
+		if maxAgeOk {
+			maxAge = float64(agePreferenceInterface["max_age"].(int64))
+		} else {
+			maxAge = agePreferenceInterface["max_age"].(float64)
+		}
 
 		if currentUserAge >= int(minAge) && currentUserAge <= int(maxAge) {
 			return true
@@ -183,6 +210,7 @@ func main() {
 
 	router.POST("/recommendations", func(c *gin.Context) {
 		//jsonData, err := ioutil.ReadAll(c.Request.Body)
+		fmt.Println("GELDİ")
 		if err == nil {
 			var requestBody RecommendationsRequestBody
 			c.BindJSON(&requestBody)
@@ -195,7 +223,8 @@ func main() {
 
 	})
 
-	router.Run("0.0.0.0:8080")
+	router.Run("localhost:8080")
+	//0.0.0.0
 
 }
 
