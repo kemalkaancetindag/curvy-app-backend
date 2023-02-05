@@ -42,6 +42,8 @@ func recommend(client firestore.Client, ctx context.Context, userID string, unLi
 
 			for {
 				doc, err := iter.Next()
+				fmt.Println(doc)
+				fmt.Println("------------------------")
 
 				if err == iterator.Done {
 					break
@@ -87,6 +89,11 @@ func recommend(client firestore.Client, ctx context.Context, userID string, unLi
 }
 
 func agePreferenceDecider(user, user2 map[string]interface{}) bool {
+	_, ok := user2["birthdate"].(string)
+
+	if !ok {
+		return false
+	}
 
 	birthYear, err := strconv.Atoi(strings.Split(user2["birthdate"].(string), "/")[2])
 
